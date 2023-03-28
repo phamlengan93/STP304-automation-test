@@ -1,0 +1,90 @@
+package com.api.auto.testcase;
+
+import java.util.HashMap;
+import java.util.Map;
+
+import static org.testng.Assert.*;
+
+import org.testng.Assert;
+import org.testng.annotations.BeforeClass;
+import org.testng.annotations.Test;
+
+import com.api.auto.utils.PropertiesFileUtils;
+
+import io.restassured.RestAssured;
+import io.restassured.http.ContentType;
+import io.restassured.response.Response;
+import io.restassured.specification.RequestSpecification;
+
+public class TC_API_Login {
+	private String account;
+	private String password;
+	private Response response;
+	
+	@BeforeClass
+	public void init() {
+		//Khai báo dữ liệu
+		String baseURL = PropertiesFileUtils.getProperty("baseurl");
+		String loginPath = PropertiesFileUtils.getProperty("loginPath");
+		account = PropertiesFileUtils.getProperty("account");
+		password = PropertiesFileUtils.getProperty("password");
+		RestAssured.baseURI = baseURL;
+		RestAssured.basePath = loginPath;
+		//Tạo body
+		Map<String, Object> user = new HashMap<String, Object>();
+		user.put("account", account);
+		user.put("password", password);
+		//Pre-requiste
+		RequestSpecification request = RestAssured.given();
+		request.contentType(ContentType.JSON);
+		request.body(user);
+		System.out.println("LOGIN REQUEST");
+		System.out.print(request.log().all());
+		//Thực thi POST request
+		response = request.post();
+		System.out.println("LOGIN RESPONSE");
+		System.out.print(response.asPrettyString());
+		//Lưu giá trị token
+		String token = response.jsonPath().getString("token");
+		PropertiesFileUtils.saveToken("token",token);
+	}
+	@Test (priority=0)
+	public void TC01_Validate200ok() {
+		//Kiểm chứng Status Code 200
+		assertEquals(response.getStatusCode(), 200, "Status code check failed!");	
+	}
+	@Test (priority=1)
+	public void TC02_ValidateMessage() {
+		//Kiểm chứng response có chứa trường 'message' không
+		//Kiểm chứng trường message có nội dung: "Đăng nhập thành công"
+		assertTrue(response.asString().contains("message"), "Message field check failed!");
+		assertEquals(response.jsonPath().getString("message"),"Đăng nhập thành công", "Mesage content check failed");
+	}
+	@Test (priority=2)
+	public void TC03_ValidateToken() {
+		//Kiểm chứng response có chứa trường 'token' không
+		assertTrue(response.asString().contains("token"), "Token field check failed!");
+		//Lưu lại token
+		//String token = response.jsonPath().getString("token");
+	}
+	@Test (priority=3)
+	public void TC04_ValidateUserType() {
+		//Kiểm chứng response có thông tin user và trường 'type' không
+		//Kiểm chứng trường type có nội dung: "UNGVIEN"
+		assertTrue(response.asString().contains("user"), "User check failed");
+		assertTrue(response.asString().contains("type"), "Type field check failed!");
+		assertEquals(response.jsonPath().getString("user.type"), "UNGVIEN", "Type content check failed!");
+	}
+	@Test (priority = 4)
+	public void TC05_ValidateAccount() {
+		//Kiểm chứng response có chứa thông tin user và trường account không
+		//Kiểm chứng trường account có khớp với account đăng nhập
+		//Kiểm chứng response có chứa thông tin user và trường password không
+		//Kiểm chứng trường password có khớp với password đăng nhập
+		assertTrue(response.asString().contains("account"), "Account field check failed!");
+		assertEquals(response.jsonPath().getString("user.account"), account, "Response Account is different with User account!");
+		assertTrue(response.asString().contains("password"), "Password field check failed!");
+		assertEquals(response.jsonPath().getString("user.password"), password, "Response Password is different with User password!");
+	}
+	
+}
